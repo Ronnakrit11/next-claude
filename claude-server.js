@@ -195,7 +195,7 @@ const server = http.createServer((req, res) => {
       const claude = spawn(
         'claude',
         ['-p', '--dangerously-skip-permissions', prompt],
-        { cwd: PROJECT_DIR, env: { ...process.env, CLAUDECODE: undefined } }
+        (() => { const e = { ...process.env }; delete e.CLAUDECODE; return { cwd: PROJECT_DIR, env: e }; })()
       );
 
       claude.stdout.on('data', data => res.write(data.toString()));

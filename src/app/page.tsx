@@ -133,7 +133,7 @@ export default function Home() {
           font-weight: 500;
           letter-spacing: 0.35em;
           text-transform: uppercase;
-          color: #c9a84c;
+          color: #b76e79;
           text-decoration: none;
         }
 
@@ -1242,7 +1242,7 @@ export default function Home() {
           font-weight: 500;
           letter-spacing: 0.32em;
           text-transform: uppercase;
-          color: #c9a84c;
+          color: #b76e79;
           text-decoration: none;
           display: block;
           margin-bottom: 16px;

@@ -43,12 +43,18 @@ function runJob(jobId, prompt) {
 
   job.output += '── Claude กำลังเริ่มทำงาน ──\n\n';
 
-  const claude = spawn('claude', ['-p', '--dangerously-skip-permissions', prompt], {
-    cwd: PROJECT_DIR,
-    env,
-  });
+  // Use script to allocate a pseudo-TTY so claude outputs properly
+  const escapedPrompt = prompt.replace(/'/g, "'\\''");
+  const claude = spawn('script', [
+    '-q', '/dev/null',
+    'claude', '-p', '--dangerously-skip-permissions', escapedPrompt
+  ], { cwd: PROJECT_DIR, env });
 
-  claude.stdout.on('data', d => { job.output += d.toString(); });
+  claude.stdout.on('data', d => {
+    // Strip ANSI escape codes for clean output
+    const clean = d.toString().replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '');
+    job.output += clean;
+  });
   claude.stderr.on('data', d => { job.output += '[err] ' + d.toString(); });
 
   claude.on('close', code => {

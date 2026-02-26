@@ -94,10 +94,37 @@ const HTML = `<!DOCTYPE html>
   <title>Claude Remote</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0d0d0d; color: #e0e0e0; min-height: 100vh; padding: 20px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; padding: 20px; }
     .container { max-width: 600px; margin: 0 auto; }
-    h1 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-    .sub { font-size: 13px; color: #666; margin-bottom: 20px; }
+
+    /* Banner */
+    .banner {
+      position: relative; overflow: hidden;
+      background: linear-gradient(135deg, #13111c 0%, #1a1030 50%, #0f0f1a 100%);
+      border: 1px solid #2a1f4a; border-radius: 14px;
+      padding: 22px 24px 20px; margin-bottom: 20px;
+    }
+    .banner::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(124,58,237,0.15) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .banner-glow {
+      position: absolute; top: -1px; left: 24px; right: 24px; height: 1px;
+      background: linear-gradient(90deg, transparent, #7c3aed, #a78bfa, #7c3aed, transparent);
+    }
+    .banner-content { position: relative; z-index: 1; }
+    .banner-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3);
+      border-radius: 20px; padding: 3px 10px; margin-bottom: 10px;
+      font-size: 11px; font-weight: 600; color: #a78bfa; letter-spacing: 0.05em;
+    }
+    .banner-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #7c3aed; animation: pulse 2s infinite; }
+    h1 { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 4px; letter-spacing: -0.5px; }
+    h1 span { color: #a78bfa; }
+    .sub { font-size: 13px; color: #6b7280; margin-bottom: 0; }
     label { font-size: 13px; color: #999; display: block; margin-bottom: 6px; }
     textarea {
       width: 100%; height: 120px; padding: 14px; border-radius: 10px;
@@ -155,8 +182,17 @@ const HTML = `<!DOCTYPE html>
 </head>
 <body>
   <div class="container">
-    <h1>Claude Remote</h1>
-    <p class="sub">สั่งแก้ code แล้ว push GitHub อัตโนมัติ</p>
+    <div class="banner">
+      <div class="banner-glow"></div>
+      <div class="banner-content">
+        <div class="banner-badge">
+          <span class="banner-badge-dot"></span>
+          LIVE
+        </div>
+        <h1>Claude <span>Remote</span></h1>
+        <p class="sub">สั่งแก้ code แล้ว push GitHub อัตโนมัติ</p>
+      </div>
+    </div>
 
     <label>คำสั่งให้ Claude</label>
     <textarea id="prompt" placeholder="เช่น: แก้ bug ใน app/page.tsx&#10;เพิ่ม dark mode ให้ header"></textarea>

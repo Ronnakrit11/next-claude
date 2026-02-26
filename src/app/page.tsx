@@ -1378,7 +1378,7 @@ export default function Home() {
             </div>
 
             <h1 className="h-hero-title">
-              รวมแชทได้ไม่จำกัด <em>ช่องทาง.</em>
+              รวมแชทไม่จำกัด <em>ธุรกิจ.</em>
             </h1>
 
             <p className="h-hero-sub">

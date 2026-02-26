@@ -5,6 +5,9 @@ const os = require('os');
 const PORT = 4000;
 const PROJECT_DIR = '/Users/ronnakrit/Desktop/next js claude';
 
+// Store jobs in memory
+const jobs = {};
+
 function getLocalIP() {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
@@ -13,6 +16,64 @@ function getLocalIP() {
     }
   }
   return 'localhost';
+}
+
+function makeId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function runJob(jobId, prompt) {
+  const job = jobs[jobId];
+
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
+
+  job.output += '── Claude กำลังทำงาน ──\n\n';
+
+  const claude = spawn('claude', ['-p', '--dangerously-skip-permissions', prompt], {
+    cwd: PROJECT_DIR,
+    env,
+  });
+
+  claude.stdout.on('data', d => { job.output += d.toString(); });
+  claude.stderr.on('data', d => { job.output += '[err] ' + d.toString(); });
+
+  claude.on('close', code => {
+    if (code !== 0) {
+      job.output += `\n[Claude ออกด้วย code ${code}]\n`;
+      job.status = 'error';
+      return;
+    }
+
+    job.output += '\n── Claude เสร็จ กำลัง push GitHub ──\n\n';
+
+    const shortPrompt = prompt.replace(/["'`]/g, '').slice(0, 60);
+    const gitCmd = [
+      `cd "${PROJECT_DIR}"`,
+      'git add -A',
+      'git diff --cached --stat',
+      `git commit -m "claude: ${shortPrompt}" --allow-empty`,
+      'git push',
+    ].join(' && ');
+
+    const git = spawn('bash', ['-c', gitCmd], {
+      cwd: PROJECT_DIR,
+      env: { ...process.env },
+    });
+
+    git.stdout.on('data', d => { job.output += d.toString(); });
+    git.stderr.on('data', d => { job.output += d.toString(); });
+
+    git.on('close', gitCode => {
+      if (gitCode === 0) {
+        job.output += '\n── Push GitHub สำเร็จ! ──\n';
+        job.status = 'done';
+      } else {
+        job.output += `\n[git ออกด้วย code ${gitCode}]\n`;
+        job.status = 'error';
+      }
+    });
+  });
 }
 
 const HTML = `<!DOCTYPE html>
@@ -39,15 +100,10 @@ const HTML = `<!DOCTYPE html>
     button {
       flex: 1; padding: 14px; border-radius: 10px; border: none;
       background: #7c3aed; color: white; font-size: 15px; font-weight: 600;
-      cursor: pointer; transition: background 0.2s;
+      cursor: pointer;
     }
-    button:hover { background: #6d28d9; }
-    button:disabled { background: #333; color: #666; cursor: not-allowed; }
-    #clearBtn {
-      flex: 0; padding: 14px 18px; background: #1a1a1a;
-      border: 1px solid #2a2a2a; color: #999;
-    }
-    #clearBtn:hover { background: #222; }
+    button:disabled { background: #333; color: #666; }
+    #clearBtn { flex: 0; padding: 14px 18px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #999; }
     .status-bar {
       margin-top: 12px; padding: 10px 14px; border-radius: 8px;
       background: #1a1a1a; border: 1px solid #2a2a2a;
@@ -55,43 +111,36 @@ const HTML = `<!DOCTYPE html>
     }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; }
     .dot.running { background: #f59e0b; animation: pulse 1s infinite; }
-    .dot.success { background: #10b981; }
+    .dot.done { background: #10b981; }
     .dot.error { background: #ef4444; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     #output {
       margin-top: 12px; padding: 14px; background: #111; border-radius: 10px;
       border: 1px solid #1e1e1e; font-family: 'SF Mono', Menlo, monospace;
       font-size: 12px; line-height: 1.6; white-space: pre-wrap;
       min-height: 200px; max-height: 60vh; overflow-y: auto; color: #ccc;
     }
-    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-    .tag-claude { background: #7c3aed22; color: #a78bfa; border: 1px solid #7c3aed44; }
-    .tag-git { background: #10b98122; color: #34d399; border: 1px solid #10b98144; }
-    .tag-error { background: #ef444422; color: #f87171; border: 1px solid #ef444444; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Claude Remote</h1>
     <p class="sub">สั่งแก้ code แล้ว push GitHub อัตโนมัติ</p>
-
     <label>คำสั่งให้ Claude</label>
-    <textarea id="prompt" placeholder="เช่น: แก้ bug ใน app/page.tsx&#10;เพิ่ม dark mode ให้ header&#10;refactor function ใน lib/utils.ts"></textarea>
-
+    <textarea id="prompt" placeholder="เช่น: แก้ bug ใน app/page.tsx&#10;เพิ่ม dark mode ให้ header"></textarea>
     <div class="row">
       <button id="runBtn" onclick="run()">Run & Push</button>
-      <button id="clearBtn" onclick="clearOutput()">Clear</button>
+      <button id="clearBtn" onclick="clearAll()">Clear</button>
     </div>
-
     <div class="status-bar">
       <div class="dot" id="dot"></div>
       <span id="statusText">พร้อมใช้งาน</span>
     </div>
-
     <div id="output">// ผลลัพธ์จะแสดงที่นี่...</div>
   </div>
 
   <script>
+    let polling = null;
     let running = false;
 
     async function run() {
@@ -100,16 +149,9 @@ const HTML = `<!DOCTYPE html>
       if (!prompt) { alert('กรุณาใส่คำสั่งก่อน'); return; }
 
       running = true;
-      const btn = document.getElementById('runBtn');
-      const output = document.getElementById('output');
-      const dot = document.getElementById('dot');
-      const status = document.getElementById('statusText');
-
-      btn.disabled = true;
-      btn.textContent = 'กำลังทำงาน...';
-      dot.className = 'dot running';
-      status.textContent = 'Claude กำลังทำงาน...';
-      output.textContent = '';
+      setUI('running', 'กำลังส่งคำสั่ง...');
+      document.getElementById('output').textContent = '';
+      document.getElementById('runBtn').disabled = true;
 
       try {
         const res = await fetch('/run', {
@@ -117,130 +159,109 @@ const HTML = `<!DOCTYPE html>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt })
         });
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          output.textContent += decoder.decode(value);
-          output.scrollTop = output.scrollHeight;
-        }
-
-        dot.className = 'dot success';
-        status.textContent = 'เสร็จแล้ว! Push GitHub สำเร็จ';
+        const { jobId } = await res.json();
+        setUI('running', 'Claude กำลังทำงาน...');
+        startPolling(jobId);
       } catch (e) {
-        dot.className = 'dot error';
-        status.textContent = 'เกิดข้อผิดพลาด: ' + e.message;
-        output.textContent += '\n[ERROR] ' + e.message;
+        setUI('error', 'เชื่อมต่อไม่ได้: ' + e.message);
+        done();
       }
-
-      running = false;
-      btn.disabled = false;
-      btn.textContent = 'Run & Push';
     }
 
-    function clearOutput() {
+    function startPolling(jobId) {
+      polling = setInterval(async () => {
+        try {
+          const res = await fetch('/status/' + jobId);
+          const data = await res.json();
+
+          document.getElementById('output').textContent = data.output;
+          document.getElementById('output').scrollTop = 99999;
+
+          if (data.status === 'done') {
+            setUI('done', 'Push GitHub สำเร็จ!');
+            done();
+          } else if (data.status === 'error') {
+            setUI('error', 'เกิดข้อผิดพลาด');
+            done();
+          } else {
+            setUI('running', 'Claude กำลังทำงาน...');
+          }
+        } catch (e) {
+          setUI('error', 'polling error: ' + e.message);
+          done();
+        }
+      }, 2000);
+    }
+
+    function done() {
+      clearInterval(polling);
+      running = false;
+      document.getElementById('runBtn').disabled = false;
+      document.getElementById('runBtn').textContent = 'Run & Push';
+    }
+
+    function setUI(state, text) {
+      document.getElementById('dot').className = 'dot ' + state;
+      document.getElementById('statusText').textContent = text;
+      if (state === 'running') {
+        document.getElementById('runBtn').textContent = 'กำลังทำงาน...';
+      }
+    }
+
+    function clearAll() {
       document.getElementById('output').textContent = '// ผลลัพธ์จะแสดงที่นี่...';
       document.getElementById('dot').className = 'dot';
       document.getElementById('statusText').textContent = 'พร้อมใช้งาน';
     }
-
-    // Submit on Cmd+Enter / Ctrl+Enter
-    document.addEventListener('keydown', e => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') run();
-    });
   </script>
 </body>
 </html>`;
 
 const server = http.createServer((req, res) => {
-  // Serve UI
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // UI
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(HTML);
     return;
   }
 
-  // Run Claude + Git Push
+  // Start job
   if (req.method === 'POST' && req.url === '/run') {
     let body = '';
-    req.on('data', chunk => (body += chunk));
+    req.on('data', c => (body += c));
     req.on('end', () => {
       let parsed;
       try { parsed = JSON.parse(body); } catch {
         res.writeHead(400);
-        res.end('Invalid JSON');
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
         return;
       }
 
       const { prompt } = parsed;
-      if (!prompt) {
-        res.writeHead(400);
-        res.end('Missing prompt');
-        return;
-      }
+      const jobId = makeId();
+      jobs[jobId] = { status: 'running', output: '' };
 
-      res.writeHead(200, {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-        'X-Content-Type-Options': 'nosniff',
-      });
+      runJob(jobId, prompt);
 
-      res.write('──────────────────────────────\n');
-      res.write('Claude Code กำลังทำงาน...\n');
-      res.write('──────────────────────────────\n\n');
-
-      const claude = spawn(
-        'claude',
-        ['-p', '--dangerously-skip-permissions', prompt],
-        (() => { const e = { ...process.env }; delete e.CLAUDECODE; return { cwd: PROJECT_DIR, env: e }; })()
-      );
-
-      claude.stdout.on('data', data => res.write(data.toString()));
-      claude.stderr.on('data', data => res.write(`[stderr] ${data}`));
-
-      claude.on('close', code => {
-        if (code !== 0) {
-          res.write(`\n[Claude ออกด้วย code ${code}]\n`);
-          res.end();
-          return;
-        }
-
-        res.write('\n──────────────────────────────\n');
-        res.write('Claude เสร็จแล้ว — กำลัง push GitHub...\n');
-        res.write('──────────────────────────────\n\n');
-
-        const shortPrompt = prompt.replace(/['"]/g, '').slice(0, 60);
-        const gitCmd = [
-          `cd "${PROJECT_DIR}"`,
-          'git add -A',
-          `git diff --cached --stat`,
-          `git commit -m "claude: ${shortPrompt}"`,
-          'git push',
-        ].join(' && ');
-
-        const git = spawn('bash', ['-c', gitCmd], {
-          cwd: PROJECT_DIR,
-          env: { ...process.env },
-        });
-
-        git.stdout.on('data', data => res.write(data.toString()));
-        git.stderr.on('data', data => res.write(data.toString()));
-
-        git.on('close', gitCode => {
-          if (gitCode === 0) {
-            res.write('\n──────────────────────────────\n');
-            res.write('Push GitHub สำเร็จ!\n');
-            res.write('──────────────────────────────\n');
-          } else {
-            res.write(`\n[git ออกด้วย code ${gitCode}]\n`);
-          }
-          res.end();
-        });
-      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ jobId }));
     });
+    return;
+  }
+
+  // Poll status
+  const statusMatch = req.url.match(/^\/status\/([a-z0-9]+)$/);
+  if (req.method === 'GET' && statusMatch) {
+    const job = jobs[statusMatch[1]];
+    if (!job) {
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'Job not found' }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: job.status, output: job.output }));
     return;
   }
 
@@ -255,6 +276,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log('──────────────────────────────');
   console.log(`Local:   http://localhost:${PORT}`);
   console.log(`Mobile:  http://${ip}:${PORT}  ← เปิดบนมือถือ`);
-  console.log('──────────────────────────────');
-  console.log('กด Ctrl+C เพื่อหยุด\n');
+  console.log('──────────────────────────────\n');
 });

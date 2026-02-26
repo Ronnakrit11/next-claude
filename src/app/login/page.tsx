@@ -500,13 +500,13 @@ export default function LoginPage() {
       <div className="l-root">
         {/* ── Mobile-only header ── */}
         <div className="l-mobile-header">
-          <span className="l-mobile-brand">Nexus</span>
+          <span className="l-mobile-brand">Geek</span>
           <span className="l-mobile-dot" />
         </div>
 
         {/* ── Left decorative panel ── */}
         <div className="l-left">
-          <div className="l-brand">Nexus</div>
+          <div className="l-brand">Geek</div>
 
           {/* Orbital geometry */}
           <div className="l-orb-wrap">

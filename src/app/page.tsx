@@ -1349,7 +1349,7 @@ export default function Home() {
 
         {/* ── Navbar ── */}
         <nav className="h-nav">
-          <Link href="/" className="h-logo">Nexus</Link>
+          <Link href="/" className="h-logo">Geek</Link>
 
           <ul className="h-nav-links">
             {["Features", "Integrations", "Pricing", "Enterprise"].map((item) => (
@@ -1462,7 +1462,7 @@ export default function Home() {
                     <div className="h-mock-dot dot-y" />
                     <div className="h-mock-dot dot-g" />
                   </div>
-                  <span className="h-mock-title-text">Nexus Inbox</span>
+                  <span className="h-mock-title-text">Geek Inbox</span>
                   <div className="h-mock-icons">
                     <Search size={12} />
                     <Bell size={12} />
@@ -1739,7 +1739,7 @@ export default function Home() {
           <p className="h-eyebrow" style={{ textAlign: "center" }}>พร้อมเริ่มต้นแล้วหรือยัง</p>
           <h2 className="h-cta-title">
             รวมทุกแชทเข้าด้วยกัน<br />
-            เพิ่มยอดขายด้วย<em> Nexus</em>
+            เพิ่มยอดขายด้วย<em> Geek</em>
           </h2>
           <p className="h-cta-sub">
             ทดลองใช้ฟรี 14 วัน ไม่ต้องใช้บัตรเครดิต ยกเลิกได้ทุกเมื่อ
@@ -1760,7 +1760,7 @@ export default function Home() {
           <div className="h-footer-wrap">
             <div className="h-footer-top">
               <div className="h-footer-brand-col">
-                <a href="#" className="h-footer-logo">Nexus</a>
+                <a href="#" className="h-footer-logo">Geek</a>
                 <p className="h-footer-tagline">
                   ระบบรวมแชทอัจฉริยะสำหรับธุรกิจยุคใหม่ เชื่อมทุก platform ไว้ในที่เดียว
                 </p>
@@ -1789,7 +1789,7 @@ export default function Home() {
             </div>
 
             <div className="h-footer-bottom">
-              <span className="h-footer-copy">© 2026 Nexus. All rights reserved.</span>
+              <span className="h-footer-copy">© 2026 Geek. All rights reserved.</span>
               <div className="h-footer-legal">
                 <a href="#" className="h-footer-link">Privacy Policy</a>
                 <a href="#" className="h-footer-link">Terms of Service</a>

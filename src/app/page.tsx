@@ -50,8 +50,8 @@ const features = [
   },
   {
     icon: <Globe size={20} />,
-    name: "Multi-Channel Broadcast",
-    desc: "ส่งข้อความหาลูกค้าพร้อมกันทุก channel ในครั้งเดียว สร้าง campaign ได้ง่ายดาย",
+    name: "Multi-ช่องทาง Broadcast",
+    desc: "ส่งข้อความหาลูกค้าพร้อมกันทุกช่องทางในครั้งเดียว สร้าง campaign ได้ง่ายดาย",
   },
   {
     icon: <Shield size={20} />,
@@ -1378,7 +1378,7 @@ export default function Home() {
             </div>
 
             <h1 className="h-hero-title">
-              รวมแชทได้ไม่จำกัด <em>Channel.</em>
+              รวมแชทได้ไม่จำกัด <em>ช่องทาง.</em>
             </h1>
 
             <p className="h-hero-sub">

@@ -63,8 +63,6 @@ function runJob(jobId, prompt) {
   });
 
   claude.on('close', code => {
-    clearInterval(tailInterval);
-    try { fs.unlinkSync(scriptPath); } catch {}
     if (code !== 0) {
       job.output += `\n[Claude ออกด้วย code ${code}]\n`;
       job.status = 'error';

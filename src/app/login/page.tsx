@@ -374,17 +374,136 @@ export default function LoginPage() {
 
         .l-register a:hover { opacity: 0.75; }
 
+        /* ── Mobile header (brand shown when left panel hidden) ── */
+        .l-mobile-header {
+          display: none;
+        }
+
+        /* ── Responsive ── */
         @media (max-width: 768px) {
+          .l-root {
+            flex-direction: column;
+            min-height: 100svh; /* small viewport units for mobile browsers */
+            min-height: 100vh;  /* fallback */
+          }
+
           .l-left { display: none; }
-          .l-right { padding: 48px 28px; }
-          .l-corner-tl { top: 24px; left: 24px; }
-          .l-corner-tr { top: 24px; right: 24px; }
-          .l-corner-bl { bottom: 24px; left: 24px; }
-          .l-corner-br { bottom: 24px; right: 24px; }
+
+          /* Show brand at top on mobile */
+          .l-mobile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 28px 24px 0;
+            position: relative;
+            z-index: 2;
+          }
+
+          .l-mobile-brand {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 0.9375rem;
+            font-weight: 400;
+            letter-spacing: 0.45em;
+            text-transform: uppercase;
+            color: var(--gold);
+          }
+
+          /* Small decorative dot */
+          .l-mobile-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 10px rgba(201, 168, 76, 0.5);
+          }
+
+          .l-right {
+            flex: 1;
+            padding: 36px 24px calc(36px + env(safe-area-inset-bottom, 0px));
+            /* Prevent iOS bounce from exposing dark bg */
+            padding-left: max(24px, env(safe-area-inset-left, 24px));
+            padding-right: max(24px, env(safe-area-inset-right, 24px));
+            align-items: flex-start;
+          }
+
+          /* Tuck corners inward on mobile */
+          .l-corner-tl { top: 20px; left: 20px; }
+          .l-corner-tr { top: 20px; right: 20px; }
+          .l-corner-bl { bottom: 20px; left: 20px; }
+          .l-corner-br { bottom: 20px; right: 20px; }
+
+          .l-form-wrap {
+            max-width: 100%;
+            padding-top: 8px;
+          }
+
+          .l-form-hd {
+            margin-bottom: 36px;
+          }
+
+          .l-form-hd h2 {
+            font-size: 2.25rem;
+          }
+
+          /* ⚠️ 16px minimum prevents iOS auto-zoom on focus */
+          .l-input {
+            font-size: 1rem;
+            padding-top: 14px;
+            padding-bottom: 14px;
+          }
+
+          .l-field {
+            margin-bottom: 28px;
+          }
+
+          /* Larger touch target for submit */
+          .l-submit {
+            margin-top: 36px;
+            padding: 18px 28px;
+            font-size: 0.8rem;
+            /* Prevent double-tap zoom on iOS */
+            touch-action: manipulation;
+          }
+
+          /* Larger tap area for pw toggle */
+          .l-pw-btn {
+            padding: 10px;
+            right: -6px;
+          }
+
+          .l-divider {
+            margin: 30px 0;
+          }
+
+          .l-register {
+            font-size: 0.875rem;
+          }
+        }
+
+        /* ── Very small screens (SE, Galaxy A series) ── */
+        @media (max-width: 375px) {
+          .l-right {
+            padding-left: 20px;
+            padding-right: 20px;
+          }
+
+          .l-form-hd h2 {
+            font-size: 2rem;
+          }
+
+          .l-mobile-header {
+            padding: 24px 20px 0;
+          }
         }
       `}</style>
 
       <div className="l-root">
+        {/* ── Mobile-only header ── */}
+        <div className="l-mobile-header">
+          <span className="l-mobile-brand">Nexus</span>
+          <span className="l-mobile-dot" />
+        </div>
+
         {/* ── Left decorative panel ── */}
         <div className="l-left">
           <div className="l-brand">Nexus</div>

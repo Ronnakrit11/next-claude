@@ -5,7 +5,6 @@ const os = require('os');
 const PORT = 4000;
 const PROJECT_DIR = '/Users/ronnakrit/Desktop/next js claude';
 
-// Store jobs in memory
 const jobs = {};
 
 function getLocalIP() {
@@ -22,13 +21,27 @@ function makeId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function countActions(output) {
+  // Count tool use patterns from claude -p output
+  const patterns = [
+    /Read\(/g, /Edit\(/g, /Write\(/g, /Bash\(/g,
+    /Glob\(/g, /Grep\(/g, /Task\(/g,
+    /Reading/g, /Writing/g, /Editing/g,
+  ];
+  let count = 0;
+  for (const p of patterns) {
+    const m = output.match(p);
+    if (m) count += m.length;
+  }
+  return count;
+}
+
 function runJob(jobId, prompt) {
   const job = jobs[jobId];
-
   const env = { ...process.env };
   delete env.CLAUDECODE;
 
-  job.output += '── Claude กำลังทำงาน ──\n\n';
+  job.output += '── Claude กำลังเริ่มทำงาน ──\n\n';
 
   const claude = spawn('claude', ['-p', '--dangerously-skip-permissions', prompt], {
     cwd: PROJECT_DIR,
@@ -65,13 +78,10 @@ function runJob(jobId, prompt) {
     git.stderr.on('data', d => { job.output += d.toString(); });
 
     git.on('close', gitCode => {
-      if (gitCode === 0) {
-        job.output += '\n── Push GitHub สำเร็จ! ──\n';
-        job.status = 'done';
-      } else {
-        job.output += `\n[git ออกด้วย code ${gitCode}]\n`;
-        job.status = 'error';
-      }
+      job.output += gitCode === 0
+        ? '\n── Push GitHub สำเร็จ! ──\n'
+        : `\n[git ออกด้วย code ${gitCode}]\n`;
+      job.status = gitCode === 0 ? 'done' : 'error';
     });
   });
 }
@@ -90,58 +100,138 @@ const HTML = `<!DOCTYPE html>
     .sub { font-size: 13px; color: #666; margin-bottom: 20px; }
     label { font-size: 13px; color: #999; display: block; margin-bottom: 6px; }
     textarea {
-      width: 100%; height: 130px; padding: 14px; border-radius: 10px;
+      width: 100%; height: 120px; padding: 14px; border-radius: 10px;
       border: 1px solid #2a2a2a; background: #1a1a1a; color: #fff;
       font-size: 15px; resize: vertical; outline: none;
-      transition: border-color 0.2s;
     }
     textarea:focus { border-color: #7c3aed; }
     .row { display: flex; gap: 10px; margin-top: 10px; }
     button {
       flex: 1; padding: 14px; border-radius: 10px; border: none;
-      background: #7c3aed; color: white; font-size: 15px; font-weight: 600;
-      cursor: pointer;
+      background: #7c3aed; color: white; font-size: 15px; font-weight: 600; cursor: pointer;
     }
-    button:disabled { background: #333; color: #666; }
-    #clearBtn { flex: 0; padding: 14px 18px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #999; }
-    .status-bar {
-      margin-top: 12px; padding: 10px 14px; border-radius: 8px;
+    button:disabled { background: #2a2a2a; color: #555; }
+    #clearBtn { flex: 0; padding: 14px 18px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; }
+
+    /* Progress card */
+    .progress-card {
+      margin-top: 12px; padding: 14px 16px; border-radius: 10px;
       background: #1a1a1a; border: 1px solid #2a2a2a;
-      font-size: 13px; display: flex; align-items: center; gap: 8px;
+      display: none;
     }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; }
+    .progress-card.visible { display: block; }
+    .progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .progress-label { font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #444; flex-shrink: 0; display: inline-block; }
     .dot.running { background: #f59e0b; animation: pulse 1s infinite; }
     .dot.done { background: #10b981; }
     .dot.error { background: #ef4444; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .progress-meta { font-size: 12px; color: #666; }
+
+    .progress-bar-bg {
+      width: 100%; height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%; background: #7c3aed; border-radius: 3px;
+      transition: width 1s ease; width: 0%;
+    }
+    .progress-bar-fill.done { background: #10b981; }
+    .progress-bar-fill.error { background: #ef4444; }
+
+    .stats { display: flex; gap: 16px; margin-top: 10px; }
+    .stat { flex: 1; background: #111; border-radius: 8px; padding: 10px 12px; border: 1px solid #222; }
+    .stat-val { font-size: 20px; font-weight: 700; color: #fff; }
+    .stat-label { font-size: 11px; color: #666; margin-top: 2px; }
+
     #output {
       margin-top: 12px; padding: 14px; background: #111; border-radius: 10px;
       border: 1px solid #1e1e1e; font-family: 'SF Mono', Menlo, monospace;
-      font-size: 12px; line-height: 1.6; white-space: pre-wrap;
-      min-height: 200px; max-height: 60vh; overflow-y: auto; color: #ccc;
+      font-size: 11px; line-height: 1.6; white-space: pre-wrap;
+      min-height: 160px; max-height: 50vh; overflow-y: auto; color: #aaa;
     }
+    .idle-msg { color: #444; font-style: italic; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Claude Remote</h1>
     <p class="sub">สั่งแก้ code แล้ว push GitHub อัตโนมัติ</p>
+
     <label>คำสั่งให้ Claude</label>
     <textarea id="prompt" placeholder="เช่น: แก้ bug ใน app/page.tsx&#10;เพิ่ม dark mode ให้ header"></textarea>
+
     <div class="row">
       <button id="runBtn" onclick="run()">Run & Push</button>
       <button id="clearBtn" onclick="clearAll()">Clear</button>
     </div>
-    <div class="status-bar">
-      <div class="dot" id="dot"></div>
-      <span id="statusText">พร้อมใช้งาน</span>
+
+    <!-- Progress Card -->
+    <div class="progress-card" id="progressCard">
+      <div class="progress-header">
+        <div class="progress-label">
+          <span class="dot" id="dot"></span>
+          <span id="statusText">รอ...</span>
+        </div>
+        <div class="progress-meta" id="progressPct">0%</div>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBar"></div>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-val" id="elapsedVal">0:00</div>
+          <div class="stat-label">เวลาที่ผ่านไป</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="actionsVal">0</div>
+          <div class="stat-label">actions ที่ทำแล้ว</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val" id="etaVal">?</div>
+          <div class="stat-label">เหลืออีกประมาณ</div>
+        </div>
+      </div>
     </div>
-    <div id="output">// ผลลัพธ์จะแสดงที่นี่...</div>
+
+    <div id="output"><span class="idle-msg">// ผลลัพธ์จะแสดงที่นี่...</span></div>
   </div>
 
   <script>
     let polling = null;
     let running = false;
+    let startTime = null;
+    let timerInterval = null;
+
+    function fmtTime(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      return m + ':' + String(s % 60).padStart(2, '0');
+    }
+
+    function estimateProgress(elapsedMs, actions, status) {
+      if (status === 'done') return 100;
+      if (status === 'error') return 100;
+      // Curve: fast early, slow middle, faster near end (fake but feels good)
+      const sec = elapsedMs / 1000;
+      let pct = 0;
+      if (sec < 10) pct = (sec / 10) * 8;          // 0-8% in first 10s
+      else if (sec < 30) pct = 8 + ((sec-10)/20)*12; // 8-20% next 20s
+      else if (sec < 90) pct = 20 + ((sec-30)/60)*35; // 20-55% next 60s
+      else if (sec < 180) pct = 55 + ((sec-90)/90)*25; // 55-80% next 90s
+      else pct = Math.min(88, 80 + (sec-180)/60*4);    // cap at 88%
+      // Bump for each action detected
+      pct = Math.min(88, pct + actions * 2);
+      return Math.round(pct);
+    }
+
+    function estimateETA(elapsedMs, pct) {
+      if (pct <= 0) return '?';
+      if (pct >= 100) return '✓';
+      const totalEst = elapsedMs / (pct / 100);
+      const remaining = totalEst - elapsedMs;
+      return fmtTime(remaining);
+    }
 
     async function run() {
       if (running) return;
@@ -149,9 +239,20 @@ const HTML = `<!DOCTYPE html>
       if (!prompt) { alert('กรุณาใส่คำสั่งก่อน'); return; }
 
       running = true;
-      setUI('running', 'กำลังส่งคำสั่ง...');
-      document.getElementById('output').textContent = '';
+      startTime = Date.now();
+
+      document.getElementById('progressCard').classList.add('visible');
+      setStatus('running', 'กำลังส่งคำสั่ง...');
+      document.getElementById('output').innerHTML = '';
       document.getElementById('runBtn').disabled = true;
+      document.getElementById('runBtn').textContent = 'กำลังทำงาน...';
+      setProgress(2, 0);
+
+      // Start elapsed timer
+      timerInterval = setInterval(() => {
+        const el = Date.now() - startTime;
+        document.getElementById('elapsedVal').textContent = fmtTime(el);
+      }, 1000);
 
       try {
         const res = await fetch('/run', {
@@ -160,10 +261,10 @@ const HTML = `<!DOCTYPE html>
           body: JSON.stringify({ prompt })
         });
         const { jobId } = await res.json();
-        setUI('running', 'Claude กำลังทำงาน...');
+        setStatus('running', 'Claude กำลังแก้ code...');
         startPolling(jobId);
       } catch (e) {
-        setUI('error', 'เชื่อมต่อไม่ได้: ' + e.message);
+        setStatus('error', 'เชื่อมต่อไม่ได้: ' + e.message);
         done();
       }
     }
@@ -174,44 +275,60 @@ const HTML = `<!DOCTYPE html>
           const res = await fetch('/status/' + jobId);
           const data = await res.json();
 
-          document.getElementById('output').textContent = data.output;
+          const elapsed = Date.now() - startTime;
+          const actions = data.actions || 0;
+          const pct = estimateProgress(elapsed, actions, data.status);
+          const eta = estimateETA(elapsed, pct);
+
+          setProgress(pct, actions, eta);
+          document.getElementById('output').textContent = data.output || '';
           document.getElementById('output').scrollTop = 99999;
 
           if (data.status === 'done') {
-            setUI('done', 'Push GitHub สำเร็จ!');
+            setStatus('done', 'Push GitHub สำเร็จ!');
+            setProgress(100, actions, '✓');
             done();
           } else if (data.status === 'error') {
-            setUI('error', 'เกิดข้อผิดพลาด');
+            setStatus('error', 'เกิดข้อผิดพลาด');
+            setProgress(100, actions, '-');
             done();
           } else {
-            setUI('running', 'Claude กำลังทำงาน...');
+            setStatus('running', 'Claude กำลังแก้ code...');
           }
         } catch (e) {
-          setUI('error', 'polling error: ' + e.message);
+          setStatus('error', 'polling error');
           done();
         }
       }, 2000);
     }
 
+    function setProgress(pct, actions, eta) {
+      const bar = document.getElementById('progressBar');
+      bar.style.width = pct + '%';
+      document.getElementById('progressPct').textContent = pct + '%';
+      if (actions !== undefined) document.getElementById('actionsVal').textContent = actions;
+      if (eta !== undefined) document.getElementById('etaVal').textContent = eta;
+    }
+
+    function setStatus(state, text) {
+      document.getElementById('dot').className = 'dot ' + state;
+      document.getElementById('statusText').textContent = text;
+      const bar = document.getElementById('progressBar');
+      bar.className = 'progress-bar-fill ' + (state !== 'running' ? state : '');
+    }
+
     function done() {
       clearInterval(polling);
+      clearInterval(timerInterval);
       running = false;
       document.getElementById('runBtn').disabled = false;
       document.getElementById('runBtn').textContent = 'Run & Push';
     }
 
-    function setUI(state, text) {
-      document.getElementById('dot').className = 'dot ' + state;
-      document.getElementById('statusText').textContent = text;
-      if (state === 'running') {
-        document.getElementById('runBtn').textContent = 'กำลังทำงาน...';
-      }
-    }
-
     function clearAll() {
-      document.getElementById('output').textContent = '// ผลลัพธ์จะแสดงที่นี่...';
-      document.getElementById('dot').className = 'dot';
-      document.getElementById('statusText').textContent = 'พร้อมใช้งาน';
+      if (running) return;
+      document.getElementById('output').innerHTML = '<span class="idle-msg">// ผลลัพธ์จะแสดงที่นี่...</span>';
+      document.getElementById('progressCard').classList.remove('visible');
     }
   </script>
 </body>
@@ -220,14 +337,12 @@ const HTML = `<!DOCTYPE html>
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
-  // UI
   if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(HTML);
     return;
   }
 
-  // Start job
   if (req.method === 'POST' && req.url === '/run') {
     let body = '';
     req.on('data', c => (body += c));
@@ -238,30 +353,31 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: 'Invalid JSON' }));
         return;
       }
-
       const { prompt } = parsed;
       const jobId = makeId();
-      jobs[jobId] = { status: 'running', output: '' };
-
+      jobs[jobId] = { status: 'running', output: '', startTime: Date.now() };
       runJob(jobId, prompt);
-
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ jobId }));
     });
     return;
   }
 
-  // Poll status
   const statusMatch = req.url.match(/^\/status\/([a-z0-9]+)$/);
   if (req.method === 'GET' && statusMatch) {
     const job = jobs[statusMatch[1]];
     if (!job) {
       res.writeHead(404);
-      res.end(JSON.stringify({ error: 'Job not found' }));
+      res.end(JSON.stringify({ error: 'not found' }));
       return;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ status: job.status, output: job.output }));
+    res.end(JSON.stringify({
+      status: job.status,
+      output: job.output,
+      actions: countActions(job.output),
+      elapsed: Date.now() - job.startTime,
+    }));
     return;
   }
 

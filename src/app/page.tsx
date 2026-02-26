@@ -1547,6 +1547,25 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ── Brand Name ── */}
+        <div style={{
+          position: "relative",
+          zIndex: 1,
+          textAlign: "center",
+          padding: "24px 0 8px",
+        }}>
+          <span style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "clamp(1.4rem, 3vw, 2rem)",
+            fontWeight: 500,
+            letterSpacing: "0.4em",
+            textTransform: "uppercase",
+            color: "#c9a84c",
+          }}>
+            Geek
+          </span>
+        </div>
+
         {/* ── Platform Marquee ── */}
         <section className="h-platforms">
           <p className="h-platforms-eyebrow">เชื่อมต่อครบทุกแพลตฟอร์มที่คุณใช้</p>

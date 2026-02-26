@@ -1349,7 +1349,7 @@ export default function Home() {
 
         {/* ── Navbar ── */}
         <nav className="h-nav">
-          <Link href="/" className="h-logo">Geek</Link>
+          <Link href="/" className="h-logo">expert8</Link>
 
           <ul className="h-nav-links">
             {["Features", "Integrations", "Pricing", "Enterprise"].map((item) => (
@@ -1760,7 +1760,7 @@ export default function Home() {
           <div className="h-footer-wrap">
             <div className="h-footer-top">
               <div className="h-footer-brand-col">
-                <a href="#" className="h-footer-logo">Geek</a>
+                <a href="#" className="h-footer-logo">expert8</a>
                 <p className="h-footer-tagline">
                   ระบบรวมแชทอัจฉริยะสำหรับธุรกิจยุคใหม่ เชื่อมทุก platform ไว้ในที่เดียว
                 </p>

@@ -203,6 +203,28 @@ const HTML = `<!DOCTYPE html>
     let startTime = null;
     let timerInterval = null;
 
+    // Auto-resume on page load if a job is running
+    window.addEventListener('load', async () => {
+      try {
+        const res = await fetch('/active');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.jobId && (data.status === 'running')) {
+          running = true;
+          startTime = Date.now() - (data.elapsed || 0);
+          document.getElementById('progressCard').classList.add('visible');
+          document.getElementById('runBtn').disabled = true;
+          document.getElementById('runBtn').textContent = 'กำลังทำงาน...';
+          if (data.prompt) document.getElementById('prompt').value = data.prompt;
+          setStatus('running', 'Claude กำลังทำงาน... (resumed)');
+          timerInterval = setInterval(() => {
+            document.getElementById('elapsedVal').textContent = fmtTime(Date.now() - startTime);
+          }, 1000);
+          startPolling(data.jobId);
+        }
+      } catch(e) {}
+    });
+
     function fmtTime(ms) {
       const s = Math.floor(ms / 1000);
       const m = Math.floor(s / 60);
@@ -355,11 +377,30 @@ const server = http.createServer((req, res) => {
       }
       const { prompt } = parsed;
       const jobId = makeId();
-      jobs[jobId] = { status: 'running', output: '', startTime: Date.now() };
+      jobs[jobId] = { status: 'running', output: '', prompt, startTime: Date.now() };
       runJob(jobId, prompt);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ jobId }));
     });
+    return;
+  }
+
+  // Latest active job (for auto-resume after refresh)
+  if (req.method === 'GET' && req.url === '/active') {
+    const active = Object.entries(jobs)
+      .map(([id, j]) => ({ ...j, jobId: id }))
+      .filter(j => j.status === 'running')
+      .sort((a, b) => b.startTime - a.startTime)[0];
+    if (!active) { res.writeHead(204); res.end(); return; }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      jobId: active.jobId,
+      status: active.status,
+      output: active.output,
+      prompt: active.prompt,
+      actions: countActions(active.output),
+      elapsed: Date.now() - active.startTime,
+    }));
     return;
   }
 

@@ -1378,8 +1378,7 @@ export default function Home() {
             </div>
 
             <h1 className="h-hero-title">
-              หนึ่ง Inbox.<br />
-              ทุก <em>Channel.</em>
+              รวมแชทได้ไม่จำกัด <em>Channel.</em>
             </h1>
 
             <p className="h-hero-sub">

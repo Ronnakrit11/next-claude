@@ -43,21 +43,39 @@ function runJob(jobId, prompt) {
 
   job.output += '── Claude กำลังเริ่มทำงาน ──\n\n';
 
-  // Use script to allocate a pseudo-TTY so claude outputs properly
+  const fs = require('fs');
+  const logFile = `/tmp/claude-job-${jobId}.log`;
+
+  // Write a wrapper shell script that runs claude and logs output
   const escapedPrompt = prompt.replace(/'/g, "'\\''");
-  const claude = spawn('script', [
-    '-q', '/dev/null',
-    'claude', '-p', '--dangerously-skip-permissions', escapedPrompt
-  ], { cwd: PROJECT_DIR, env });
+  const shellScript = `#!/bin/bash
+unset CLAUDECODE
+cd '${PROJECT_DIR}'
+claude -p --dangerously-skip-permissions '${escapedPrompt}' 2>&1 | tee '${logFile}'
+`;
+  const scriptPath = `/tmp/claude-run-${jobId}.sh`;
+  fs.writeFileSync(scriptPath, shellScript, { mode: 0o755 });
+
+  const claude = spawn('bash', [scriptPath], { cwd: PROJECT_DIR, env });
+
+  // Also tail the log file every second for output
+  const tailInterval = setInterval(() => {
+    try {
+      const content = fs.existsSync(logFile) ? fs.readFileSync(logFile, 'utf8') : '';
+      const clean = content.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '');
+      job.output = '── Claude กำลังเริ่มทำงาน ──\n\n' + clean;
+    } catch {}
+  }, 1000);
 
   claude.stdout.on('data', d => {
-    // Strip ANSI escape codes for clean output
     const clean = d.toString().replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '');
-    job.output += clean;
+    job.output = '── Claude กำลังเริ่มทำงาน ──\n\n' + clean;
   });
   claude.stderr.on('data', d => { job.output += '[err] ' + d.toString(); });
 
   claude.on('close', code => {
+    clearInterval(tailInterval);
+    try { fs.unlinkSync(scriptPath); } catch {}
     if (code !== 0) {
       job.output += `\n[Claude ออกด้วย code ${code}]\n`;
       job.status = 'error';

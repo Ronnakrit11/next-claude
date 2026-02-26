@@ -77,6 +77,7 @@ function runJob(jobId, prompt) {
       'git add -A',
       'git diff --cached --stat',
       `git commit -m "claude: ${shortPrompt}" --allow-empty`,
+      'git pull --rebase origin main',
       'git push',
     ].join(' && ');
 

@@ -2,8 +2,8 @@ const http = require('http');
 const { spawn } = require('child_process');
 const os = require('os');
 
-const PORT = 4000;
-const PROJECT_DIR = '/Users/ronnakrit/Desktop/next js claude';
+const PORT = process.env.CLAUDE_PORT || 4000;
+const PROJECT_DIR = process.env.PROJECT_DIR || process.cwd();
 
 const jobs = {};
 

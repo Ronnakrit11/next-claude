@@ -1307,6 +1307,12 @@ export default function Home() {
           gap: 24px;
         }
 
+        .h-brand-hero-mobile {
+          display: none;
+          padding-top: 20px;
+          text-align: left;
+        }
+
         /* ── Responsive ── */
         @media (max-width: 1080px) {
           .h-hero { flex-direction: column; padding: 90px 36px 56px; gap: 56px; }
@@ -1334,12 +1340,6 @@ export default function Home() {
           .h-platforms { padding: 44px 0; }
           .h-brand-section { display: none; }
           .h-brand-hero-mobile { display: block; }
-        }
-
-        .h-brand-hero-mobile {
-          display: none;
-          padding-top: 20px;
-          text-align: left;
         }
       `}</style>
 

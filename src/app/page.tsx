@@ -1332,6 +1332,14 @@ export default function Home() {
           .h-footer-links-row { flex-wrap: wrap; gap: 36px; }
           .h-mock-sidebar { width: 150px; }
           .h-platforms { padding: 44px 0; }
+          .h-brand-section { display: none; }
+          .h-brand-hero-mobile { display: block; }
+        }
+
+        .h-brand-hero-mobile {
+          display: none;
+          padding-top: 20px;
+          text-align: left;
         }
       `}</style>
 
@@ -1404,6 +1412,20 @@ export default function Home() {
                 <span className="h-stat-val">99.9%</span>
                 <span className="h-stat-lbl">Uptime SLA</span>
               </div>
+            </div>
+
+            {/* Mobile-only brand name */}
+            <div className="h-brand-hero-mobile">
+              <span style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: "1.6rem",
+                fontWeight: 500,
+                letterSpacing: "0.4em",
+                textTransform: "uppercase",
+                color: "#c9a84c",
+              }}>
+                Geek
+              </span>
             </div>
           </div>
 
@@ -1548,7 +1570,7 @@ export default function Home() {
         </section>
 
         {/* ── Brand Name ── */}
-        <div style={{
+        <div className="h-brand-section" style={{
           position: "relative",
           zIndex: 1,
           textAlign: "center",

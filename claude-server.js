@@ -36,16 +36,19 @@ function countActions(output) {
   return count;
 }
 
-function runJob(jobId, prompt) {
+function runJob(jobId, prompt, mode) {
   const job = jobs[jobId];
   const env = { ...process.env };
   delete env.CLAUDECODE;
 
-  job.output += '── Claude กำลังเริ่มทำงาน ──\n\n';
+  const modeName = mode === 'fast' ? '⚡ Fast' : '🧠 Smart';
+  const maxTurns = mode === 'fast' ? 3 : 10;
+  job.output += `── Claude กำลังเริ่มทำงาน (${modeName}, max ${maxTurns} turns) ──\n\n`;
 
   // Run via bash -c so env vars are properly inherited
   const escaped = prompt.replace(/\\/g, '\\\\').replace(/'/g, "'\\''");
-  const claude = spawn('bash', ['-c', `claude -p --dangerously-skip-permissions '${escaped}'`], {
+  const claudeCmd = `claude -p --dangerously-skip-permissions --max-turns ${maxTurns} '${escaped}'`;
+  const claude = spawn('bash', ['-c', claudeCmd], {
     cwd: PROJECT_DIR,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -152,6 +155,14 @@ const HTML = `<!DOCTYPE html>
     button:disabled { background: #2a2a2a; color: #555; }
     #clearBtn { flex: 0; padding: 14px 18px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; }
 
+    .mode-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; margin-bottom: 4px; }
+    .mode-btn {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid #2a2a2a;
+      background: #1a1a1a; color: #888; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .mode-btn.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    .mode-hint { font-size: 11px; color: #555; }
+
     /* Progress card */
     .progress-card {
       margin-top: 12px; padding: 14px 16px; border-radius: 10px;
@@ -209,6 +220,12 @@ const HTML = `<!DOCTYPE html>
     <label>คำสั่งให้ Claude</label>
     <textarea id="prompt" placeholder="เช่น: แก้ bug ใน app/page.tsx&#10;เพิ่ม dark mode ให้ header"></textarea>
 
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="fastBtn" onclick="setMode('fast')">⚡ Fast</button>
+      <button class="mode-btn" id="smartBtn" onclick="setMode('smart')">🧠 Smart</button>
+      <span class="mode-hint" id="modeHint">max 3 turns — งานแก้ไขง่ายๆ</span>
+    </div>
+
     <div class="row">
       <button id="runBtn" onclick="run()">Run & Push</button>
       <button id="clearBtn" onclick="clearAll()">Clear</button>
@@ -250,6 +267,16 @@ const HTML = `<!DOCTYPE html>
     let running = false;
     let startTime = null;
     let timerInterval = null;
+    let currentMode = 'fast';
+
+    function setMode(mode) {
+      currentMode = mode;
+      document.getElementById('fastBtn').className = 'mode-btn' + (mode === 'fast' ? ' active' : '');
+      document.getElementById('smartBtn').className = 'mode-btn' + (mode === 'smart' ? ' active' : '');
+      document.getElementById('modeHint').textContent = mode === 'fast'
+        ? 'max 3 turns — งานแก้ไขง่ายๆ'
+        : 'max 10 turns — งานซับซ้อน';
+    }
 
     // Auto-resume on page load if a job is running
     window.addEventListener('load', async () => {
@@ -328,7 +355,7 @@ const HTML = `<!DOCTYPE html>
         const res = await fetch('/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt })
+          body: JSON.stringify({ prompt, mode: currentMode })
         });
         const { jobId } = await res.json();
         setStatus('running', 'Claude กำลังแก้ code...');
@@ -423,10 +450,10 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: 'Invalid JSON' }));
         return;
       }
-      const { prompt } = parsed;
+      const { prompt, mode } = parsed;
       const jobId = makeId();
-      jobs[jobId] = { status: 'running', output: '', prompt, startTime: Date.now() };
-      runJob(jobId, prompt);
+      jobs[jobId] = { status: 'running', output: '', prompt, mode: mode || 'fast', startTime: Date.now() };
+      runJob(jobId, prompt, mode || 'fast');
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ jobId }));
     });

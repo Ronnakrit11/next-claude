@@ -1387,10 +1387,10 @@ export default function Home() {
             </p>
 
             <div className="h-hero-ctas">
-              <Link href="/login" className="h-cta-primary">
-                เริ่มต้นฟรี 14 วัน
+              <a href="tel:0994569591" className="h-cta-primary">
+                ติดต่อ
                 <ArrowRight size={14} className="cta-arrow" />
-              </Link>
+              </a>
               <a href="#" className="h-cta-ghost">
                 ดูวิดีโอสาธิต
               </a>
